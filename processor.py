@@ -25,7 +25,7 @@ URL_RE = re.compile(
 @dataclass
 class Options:
     remove_mentions: bool = False  # удалять @username
-    drop_link_text: bool = False   # удалять текст-гиперссылку целиком (иначе остаётся текст без ссылки)
+    drop_link_text: bool = True    # удалять текст-гиперссылку целиком (False — оставить текст без ссылки)
 
 
 @dataclass
