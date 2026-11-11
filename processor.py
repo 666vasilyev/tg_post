@@ -39,14 +39,24 @@ class Post:
     media: list = field(default_factory=list)       # media-объекты Telethon
     media_desc: list = field(default_factory=list)  # человекочитаемо, для check.py
     skip_reason: str | None = None
+    raw_text: str = ""  # исходный текст (для диагностики)
+
+
+_INVIS = "\u200b\u200c\u200d\u2060\ufe0e\ufe0f"  # невидимые символы и селекторы эмодзи
+_BULLETS = "•·∙‧●◦▪"
 
 
 def phrase_regex(phrase: str):
-    """Регэксп для точной последовательности: пробелы гибкие, после символа допускается селектор эмодзи U+FE0F."""
-    parts = []
-    for ch in phrase.replace("\ufe0f", ""):
-        parts.append(r"[ \u00a0]*" if ch in " \u00a0" else re.escape(ch) + "\ufe0f?")
-    return re.compile("".join(parts))
+    """Регэксп для точной последовательности символов.
+
+    Терпимо к пробелам любого вида (в т.ч. неразрывным/узким), невидимым символам
+    (ZWJ, ZWSP, селектор эмодзи U+FE0F) между символами и к похожим точкам-маркерам.
+    Порядок символов должен совпадать.
+    """
+    tokens = [c for c in phrase if not c.isspace() and c not in _INVIS]
+    sep = r"[\s" + _INVIS + r"]*"
+    parts = [("[" + _BULLETS + "]") if c in _BULLETS else re.escape(c) for c in tokens]
+    return re.compile(sep.join(parts) + "[" + _INVIS + "]*")
 
 
 def _u16(ch: str) -> int:
@@ -209,6 +219,7 @@ def build_post(messages, source_title="", opts: Options | None = None) -> Post:
     # (б) текст без ссылок
     src = next((m for m in messages if m.raw_text), None)
     if src:
+        post.raw_text = src.raw_text
         post.text, post.entities = strip_links(src.raw_text, src.entities, opts)
 
     # (в) все вложения; превью ссылок (webpage) не вложение — ссылки мы убрали
