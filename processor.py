@@ -27,6 +27,7 @@ class Options:
     remove_mentions: bool = False  # удалять @username
     drop_link_text: bool = True    # удалять текст-гиперссылку целиком (False — оставить текст без ссылки)
     remove_phrases: tuple = ()     # точные последовательности символов, которые вырезаются из текста
+    trim_tail: int = 0             # обрезать N последних видимых символов текста (пробелы не считаются)
 
 
 @dataclass
@@ -57,6 +58,30 @@ def phrase_regex(phrase: str):
     sep = r"[\s" + _INVIS + r"]*"
     parts = [("[" + _BULLETS + "]") if c in _BULLETS else re.escape(c) for c in tokens]
     return re.compile(sep.join(parts) + "[" + _INVIS + "]*")
+
+
+def _tail_start(s: str, n: int) -> int:
+    """Индекс, с которого нужно обрезать, чтобы убрать n последних видимых символов.
+
+    Пробелы и невидимые символы не считаются; эмодзи с селектором/ZWJ/тоном кожи — один символ.
+    """
+    i = len(s)
+    for _ in range(n):
+        while i > 0 and (s[i - 1].isspace() or s[i - 1] in _INVIS):
+            i -= 1
+        if i == 0:
+            break
+        i -= 1
+        while True:
+            if i > 0 and 0x1F3FB <= ord(s[i]) <= 0x1F3FF:
+                i -= 1
+            elif i >= 2 and s[i - 1] == "\u200d":
+                i -= 2
+            else:
+                break
+    while i > 0 and (s[i - 1].isspace() or s[i - 1] in _INVIS):
+        i -= 1
+    return i
 
 
 def _u16(ch: str) -> int:
@@ -143,6 +168,10 @@ def strip_links(text, entities, opts: Options | None = None):
     s, idx = _drop(s, idx, [(m.start() + 2, m.end()) for m in re.finditer(r"\n{3,}", s)])
     edge = [m.span() for m in re.finditer(r"\A\s+|\s+\Z", s)]
     s, idx = _drop(s, idx, edge)
+
+    if opts.trim_tail > 0 and s:
+        s, idx = _drop(s, idx, [(_tail_start(s, opts.trim_tail), len(s))])
+        s, idx = _drop(s, idx, [m.span() for m in re.finditer(r"\A\s+|\s+\Z", s)])
 
     kept = set(idx)
     new16 = [0] * (n + 1)

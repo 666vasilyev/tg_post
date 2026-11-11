@@ -52,7 +52,7 @@ async def amain(args):
     store = ChannelStore()
     if not store.channels:
         print("Список каналов пуст. Добавьте: python main.py add @channel")
-    reposter = Reposter(store, ConsoleSender(), settings.OPTS)
+    reposter = Reposter(store, ConsoleSender(args.debug), settings.OPTS)
     async with TelegramClient(prepare_session(), settings.API_ID, settings.API_HASH) as client:
         if args.last:
             await replay(client, reposter, store, args.last)
@@ -68,6 +68,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawTextHelpFormatter)
     ap.add_argument("--last", type=int, default=0, help="прогнать N последних постов каждого канала")
     ap.add_argument("--no-live", action="store_true", help="не слушать новые посты")
+    ap.add_argument("--debug", action="store_true", help="показать исходный и итоговый текст с кодами символов")
     args = ap.parse_args()
     try:
         asyncio.run(amain(args))

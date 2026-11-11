@@ -34,6 +34,9 @@ class TelegramSender:
 class ConsoleSender:
     """Ничего не отправляет, а печатает то, что было бы опубликовано."""
 
+    def __init__(self, debug=False):
+        self.debug = debug
+
     async def process(self, post: Post):
         ts = datetime.now().strftime("%H:%M:%S")
         ids = ",".join(map(str, post.msg_ids))
@@ -49,7 +52,11 @@ class ConsoleSender:
         if post.entities:
             kinds = ", ".join(sorted({type(e).__name__.replace("MessageEntity", "") for e in post.entities}))
             print(f"  ├─ форматирование: {kinds}")
-        print(f"  └─ вложения: {', '.join(post.media_desc) if post.media_desc else 'нет'}\n")
+        print(f"  └─ вложения: {', '.join(post.media_desc) if post.media_desc else 'нет'}")
+        if self.debug:
+            print(f"  [debug] исходный текст: {post.raw_text!a}")
+            print(f"  [debug] итоговый текст: {post.text!a}")
+        print()
 
 
 class Reposter:
