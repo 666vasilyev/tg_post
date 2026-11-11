@@ -26,6 +26,7 @@ URL_RE = re.compile(
 class Options:
     remove_mentions: bool = False  # удалять @username
     drop_link_text: bool = True    # удалять текст-гиперссылку целиком (False — оставить текст без ссылки)
+    remove_phrases: tuple = ()     # точные последовательности символов, которые вырезаются из текста
 
 
 @dataclass
@@ -38,6 +39,14 @@ class Post:
     media: list = field(default_factory=list)       # media-объекты Telethon
     media_desc: list = field(default_factory=list)  # человекочитаемо, для check.py
     skip_reason: str | None = None
+
+
+def phrase_regex(phrase: str):
+    """Регэксп для точной последовательности: пробелы гибкие, после символа допускается селектор эмодзи U+FE0F."""
+    parts = []
+    for ch in phrase.replace("\ufe0f", ""):
+        parts.append(r"[ \u00a0]*" if ch in " \u00a0" else re.escape(ch) + "\ufe0f?")
+    return re.compile("".join(parts))
 
 
 def _u16(ch: str) -> int:
@@ -97,6 +106,11 @@ def strip_links(text, entities, opts: Options | None = None):
 
     for m in URL_RE.finditer(text):
         mark(m.start(), m.end())
+
+    for ph in opts.remove_phrases:
+        if ph.strip():
+            for m in phrase_regex(ph.strip()).finditer(text):
+                mark(m.start(), m.end())
 
     # убираем пробелы перед удалённой ссылкой, чтобы не оставались двойные
     i = 0
